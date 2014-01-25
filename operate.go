@@ -20,14 +20,16 @@ const (
 var ErrSizeTooLarge = errors.New("bitarray: Specified is too large.")
 
 type Buffer struct {
-	buf   io.ByteReader
-	n     uint8 // Index of current bit position in byte segmentation.
-	extra uint8 // Extra byte unmanupilated in last operation.
+	buf    io.ByteReader
+	n      uint8 // Index of current bit position in byte segmentation.
+	extra  uint8 // Extra byte unmanupilated in last operation.
+	unread bool
 }
 
 func NewBuffer(b io.ByteReader) *Buffer {
 	return &Buffer{
-		buf: b,
+		buf:    b,
+		unread: true,
 	}
 }
 
@@ -39,35 +41,28 @@ func (b *Buffer) PopUint8(size uint8) (uint8, error) {
 	}
 
 	var bin uint8
-	if b.n == 0 {
+	if b.unread || b.n+size >= Uint8Size {
 		c, err := b.buf.ReadByte()
+		if err == io.EOF {
+			bin = b.extra >> b.n
+			b.n = 0
+			return bin, io.EOF
+		}
 		if err != nil {
 			return 0, err
 		}
-		bin = uint8(c) >> (Uint8Size - size)
-		b.n += size
-		b.extra = uint8(c) << size
-	} else {
-		if b.n+size < Uint8Size {
-			bin = b.extra >> (Uint8Size - size)
-			b.n += size
-			b.extra = b.extra << size
-		} else {
-			c, err := b.buf.ReadByte()
-			if err == io.EOF {
-				bin = b.extra >> b.n
-				b.n = 0
-				return bin, io.EOF
-			}
-			if err != nil {
-				return 0, err
-			}
-			n := (b.n + size) % Uint8Size
-			bin = uint8(c) >> (Uint8Size - n)
-			bin += b.extra >> (size - n)
-			b.extra = uint8(c) << n
-			b.n = n
+		n := (b.n + size) % Uint8Size
+		bin = uint8(c) >> (Uint8Size - n)
+		bin += b.extra >> (size - n)
+		b.extra = uint8(c) << n
+		b.n = n
+		if b.unread {
+			b.unread = false
 		}
+	} else {
+		bin = b.extra >> (Uint8Size - size)
+		b.n += size
+		b.extra = b.extra << size
 	}
 	return bin, nil
 }
