@@ -31,6 +31,8 @@ func NewBuffer(b io.ByteReader) *Buffer {
 	}
 }
 
+// PopUint8 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
+// it returns bits left in the buffer and io.EOF
 func (b *Buffer) PopUint8(size uint8) (uint8, error) {
 	if size > Uint8Size {
 		return 0, ErrSizeTooLarge
@@ -51,11 +53,16 @@ func (b *Buffer) PopUint8(size uint8) (uint8, error) {
 			b.n += size
 			b.extra = b.extra << size
 		} else {
-			n := (b.n + size) % Uint8Size
 			c, err := b.buf.ReadByte()
+			if err == io.EOF {
+				bin = b.extra >> b.n
+				b.n = 0
+				return bin, io.EOF
+			}
 			if err != nil {
 				return 0, err
 			}
+			n := (b.n + size) % Uint8Size
 			bin = uint8(c) >> (Uint8Size - n)
 			bin += b.extra >> (size - n)
 			b.extra = uint8(c) << n

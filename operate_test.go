@@ -1,6 +1,7 @@
 package bitarray
 
 import (
+	"io"
 	"bytes"
 	"reflect"
 	"testing"
@@ -129,6 +130,38 @@ func TestPopUint8(t *testing.T) {
 		}
 		if buf.extra != extraWants3[i] {
 			t.Errorf("%dth element: want: %v, out=%v", i, extraWants3[i], buf.extra)
+		}
+	}
+
+	size4 := uint8(7)
+	uint8Wants4 := []uint8{
+		0x3f, // --|111111
+		0x0f, // --|001111
+		0x15, // --|010101
+	}
+	nWants4 := []uint8{0, 0, 0}
+	extraWants4 := []uint8{
+		0x00,
+		0x00,
+		0x00,
+	}
+	uint8Outs4 := make([]uint8, len(ins))
+	for i, c := range ins {
+		out, err := c.PopUint8(size4)
+		if err != nil && err != io.EOF {
+			t.Error(err)
+		}
+		uint8Outs4[i] = out
+	}
+	if !reflect.DeepEqual(uint8Wants4, uint8Outs4) {
+		t.Errorf("wants: %v, outs=%v", uint8Wants4, uint8Outs4)
+	}
+	for i, buf := range ins {
+		if buf.n != nWants4[i] {
+			t.Errorf("%dth element: want: %v, out=%v", i, nWants4[i], buf.n)
+		}
+		if buf.extra != extraWants3[i] {
+			t.Errorf("%dth element: want: %v, out=%v", i, extraWants4[i], buf.extra)
 		}
 	}
 }
