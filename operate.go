@@ -70,6 +70,7 @@ func (b *Buffer) PopUint8(size uint8) (uint8, error) {
 
 // PopUint16 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
 // it returns bits left in the buffer and io.EOF
+// TODO(ymotongpoo): How about calling PopUint8 twice?
 func (b *Buffer) PopUint16(size uint8) (uint16, error) {
 	if size > Uint16Size {
 		return 0, ErrSizeTooLarge
@@ -80,6 +81,48 @@ func (b *Buffer) PopUint16(size uint8) (uint16, error) {
 		bin, err := b.PopUint8(size)
 		return uint16(bin), err
 	}
+	return bin, nil
+}
 
+// PopUint32 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
+// it returns bits left in the buffer and io.EOF
+// TODO(ymotongpoo): How about calling PopUint8 4 times?
+func (b *Buffer) PopUint32(size uint8) (uint32, error) {
+	if size > Uint32Size {
+		return 0, ErrSizeTooLarge
+	}
+
+	var bin uint32
+	switch {
+	case size <= Uint8Size:
+		bin, err := b.PopUint8(size)
+		return uint32(bin), err
+	case size <= Uint16Size:
+		bin, err := b.PopUint16(size)
+		return uint32(bin), err
+	}
+	return bin, nil
+}
+
+// PopUint64 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
+// it returns bits left in the buffer and io.EOF
+// TODO(ymotongpoo): How about calling PopUint8 8 times?
+func (b *Buffer) PopUint64(size uint8) (uint64, error) {
+	if size > Uint32Size {
+		return 0, ErrSizeTooLarge
+	}
+
+	var bin uint64
+	switch {
+	case size <= Uint8Size:
+		bin, err := b.PopUint8(size)
+		return uint64(bin), err
+	case size <= Uint16Size:
+		bin, err := b.PopUint16(size)
+		return uint64(bin), err
+	case size <= Uint32Size:
+		bin, err := b.PopUint32(size)
+		return uint64(bin), err
+	}
 	return bin, nil
 }
