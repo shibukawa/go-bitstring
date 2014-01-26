@@ -1,13 +1,16 @@
 package bitarray
 
 import (
-	"io"
 	"bytes"
+	"io"
 	"reflect"
 	"testing"
 )
 
-func Setup() []*Buffer {
+func Setup(m int, n uint8, extras []uint8, unread bool) []*Buffer {
+	if extras == nil {
+		extras = []uint8{0x00, 0x00, 0x00}
+	}
 	ins := [][]byte{
 		[]byte{
 			0x00, // 00000000
@@ -26,16 +29,20 @@ func Setup() []*Buffer {
 	bufs := make([]*Buffer, len(ins))
 	for i, bs := range ins {
 		buf := bytes.NewBuffer(bs)
+		_ = buf.Next(m)
 		bufs[i] = NewBuffer(buf)
+		bufs[i].n = n
+		bufs[i].extra = extras[i]
+		bufs[i].unread = unread
 	}
 	return bufs
 }
 
-func TestPopUint8(t *testing.T) {
+// PopUint8: Phase 1) Fetch first 3 bits from elements in `ins`
+func TestPopUint8Phase1(t *testing.T) {
 	size := uint8(3)
-	ins := Setup()
+	ins := Setup(0, 0, nil, true)
 
-	// Phase 1) Fetch first 3 bits from elements in `ins`
 	uint8Wants := []uint8{
 		0x00, // -----|000
 		0x07, // -----|111
@@ -66,102 +73,129 @@ func TestPopUint8(t *testing.T) {
 			t.Errorf("%dth element: want: %v, out=%v", i, extraWants[i], buf.extra)
 		}
 	}
+}
 
-	size2 := uint8(2)
-	// Phase 2) Fetch next 2 bits from elements in `ins`
-	uint8Wants2 := []uint8{
+// PopUint8: Phase 2) Fetch next 2 bits from elements in `ins`
+func TestPopUint8Phase2(t *testing.T) {
+	extras := []uint8{
+		0x00, // 00000|---
+		0x80, // 10000|---
+		0x50, // 01010|---
+	}
+	ins := Setup(0, 3, extras, false)
+	size := uint8(2)
+
+	uint8Wants := []uint8{
 		0x00, // ------|00
 		0x02, // ------|10
 		0x01, // ------|01
 	}
-	nWants2 := []uint8{5, 5, 5}
-	extraWants2 := []uint8{
+	nWants := []uint8{5, 5, 5}
+	extraWants := []uint8{
 		0x00, // 000|-----
 		0x00, // 000|-----
 		0x40, // 010|-----
 	}
-	uint8Outs2 := make([]uint8, len(ins))
+
+	uint8Outs := make([]uint8, len(ins))
 	for i, c := range ins {
-		out, err := c.PopUint8(size2)
+		out, err := c.PopUint8(size)
 		if err != nil {
 			t.Error(err)
 		}
-		uint8Outs2[i] = out
+		uint8Outs[i] = out
 	}
-	if !reflect.DeepEqual(uint8Wants2, uint8Outs2) {
-		t.Errorf("wants: %v, outs=%v", uint8Wants2, uint8Outs2)
+	if !reflect.DeepEqual(uint8Wants, uint8Outs) {
+		t.Errorf("wants: %v, outs=%v", uint8Wants, uint8Outs)
 	}
 	for i, buf := range ins {
-		if buf.n != nWants2[i] {
-			t.Errorf("%dth element: want: %v, out=%v", i, nWants2[i], buf.n)
+		if buf.n != nWants[i] {
+			t.Errorf("%dth element: want: %v, out=%v", i, nWants[i], buf.n)
 		}
-		if buf.extra != extraWants2[i] {
-			t.Errorf("%dth element: want: %v, out=%v", i, extraWants2[i], buf.extra)
+		if buf.extra != extraWants[i] {
+			t.Errorf("%dth element: want: %v, out=%v", i, extraWants[i], buf.extra)
 		}
 	}
+}
 
-	size3 := uint8(5)
-	// Phase 3) Fetch next 2 bits from elements in `ins`
-	uint8Wants3 := []uint8{
+// PopUint8: Phase 3) Fetch next 2 bits from elements in `ins`
+func TestPopUint8Phase3(t *testing.T) {
+	extras := []uint8{
+		0x00, // 000|-----
+		0x00, // 000|-----
+		0x40, // 010|-----
+	}
+	ins := Setup(1, 5, extras, false)
+	size := uint8(5)
+	uint8Wants := []uint8{
 		0x03, // ---|000,11
 		0x00, // ---|000,00
 		0x09, // ---|010,01
 	}
-	nWants3 := []uint8{2, 2, 2}
-	extraWants3 := []uint8{
-		0xfc, // 111111|--
-		0x3c, // 001111|--
-		0x54, // 010101|--
+	nWants := []uint8{2, 2, 2}
+	extraWants := []uint8{
+		0xfc, // 1111,11|--
+		0x3c, // 0011,11|--
+		0x54, // 0101,01|--
 	}
-	uint8Outs3 := make([]uint8, len(ins))
+	uint8Outs := make([]uint8, len(ins))
 	for i, c := range ins {
-		out, err := c.PopUint8(size3)
+		out, err := c.PopUint8(size)
 		if err != nil {
 			t.Error(err)
 		}
-		uint8Outs3[i] = out
+		uint8Outs[i] = out
 	}
-	if !reflect.DeepEqual(uint8Wants3, uint8Outs3) {
-		t.Errorf("wants: %v, outs=%v", uint8Wants3, uint8Outs3)
+	if !reflect.DeepEqual(uint8Wants, uint8Outs) {
+		t.Errorf("wants: %v, outs=%v", uint8Wants, uint8Outs)
 	}
 	for i, buf := range ins {
-		if buf.n != nWants3[i] {
-			t.Errorf("%dth element: want: %v, out=%v", i, nWants3[i], buf.n)
+		if buf.n != nWants[i] {
+			t.Errorf("%dth element: want: %v, out=%v", i, nWants[i], buf.n)
 		}
-		if buf.extra != extraWants3[i] {
-			t.Errorf("%dth element: want: %v, out=%v", i, extraWants3[i], buf.extra)
+		if buf.extra != extraWants[i] {
+			t.Errorf("%dth element: want: %v, out=%v", i, extraWants[i], buf.extra)
 		}
 	}
+}
 
-	size4 := uint8(7)
-	uint8Wants4 := []uint8{
-		0x3f, // --|111111
-		0x0f, // --|001111
-		0x15, // --|010101
+func TestPopUint8Phase4(t *testing.T) {
+	extras := []uint8{
+		0xfc, // 1111,11|--
+		0x3c, // 0011,11|--
+		0x54, // 0101,01|--
 	}
-	nWants4 := []uint8{0, 0, 0}
-	extraWants4 := []uint8{
+	ins := Setup(2, 2, extras, false)
+	size := uint8(7)
+
+	uint8Wants := []uint8{
+		0x3f, // --|11,1111
+		0x0f, // --|00,1111
+		0x15, // --|01,0101
+	}
+	nWants := []uint8{0, 0, 0}
+	extraWants := []uint8{
 		0x00,
 		0x00,
 		0x00,
 	}
-	uint8Outs4 := make([]uint8, len(ins))
+	uint8Outs := make([]uint8, len(ins))
 	for i, c := range ins {
-		out, err := c.PopUint8(size4)
+		out, err := c.PopUint8(size)
 		if err != nil && err != io.EOF {
 			t.Error(err)
 		}
-		uint8Outs4[i] = out
+		uint8Outs[i] = out
 	}
-	if !reflect.DeepEqual(uint8Wants4, uint8Outs4) {
-		t.Errorf("wants: %v, outs=%v", uint8Wants4, uint8Outs4)
+	if !reflect.DeepEqual(uint8Wants, uint8Outs) {
+		t.Errorf("wants: %v, outs=%v", uint8Wants, uint8Outs)
 	}
 	for i, buf := range ins {
-		if buf.n != nWants4[i] {
-			t.Errorf("%dth element: want: %v, out=%v", i, nWants4[i], buf.n)
+		if buf.n != nWants[i] {
+			t.Errorf("%dth element: want: %v, out=%v", i, nWants[i], buf.n)
 		}
-		if buf.extra != extraWants3[i] {
-			t.Errorf("%dth element: want: %v, out=%v", i, extraWants4[i], buf.extra)
+		if buf.extra != extraWants[i] {
+			t.Errorf("%dth element: want: %v, out=%v", i, extraWants[i], buf.extra)
 		}
 	}
 }
