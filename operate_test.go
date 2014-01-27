@@ -311,9 +311,9 @@ func TestPopUint16Case1(t *testing.T) {
 	ins := Setup(1, 5, extras, false)
 	size := uint8(5)
 	uint16Wants := []uint16{
-		0x03, // ----,----,---0,00|11
-		0x00, // ----,----,---0,00|00
-		0x09, // ----,----,---0,10|01
+		0x0003, // ----,----,---0,00|11
+		0x0000, // ----,----,---0,00|00
+		0x0009, // ----,----,---0,10|01
 	}
 	nWants := []uint8{2, 2, 2}
 	extraWants := []uint8{
@@ -520,6 +520,185 @@ func TestPopUint16Case5(t *testing.T) {
 		}
 		if buf.extra != extraWants[i] {
 			t.Errorf("%dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
+		}
+	}
+}
+
+// PopUint32: Case 1) Fetch next 3 bits from elements in `ins`.
+// Use case that range can be handled within Uint8. Reusing same test case
+// as TestPopUint8Case3 and only difference is results are expected as []uint16.
+func TestPopUint32Case1(t *testing.T) {
+	extras := []uint8{
+		0x00, // 000|-,----
+		0x00, // 000|-,----
+		0x40, // 010|-,----
+	}
+	ins := Setup(1, 5, extras, false)
+	size := uint8(5)
+	uint32Wants := []uint32{
+		0x00000003, // ----,----,----,----,----,----,---0,00|11
+		0x00000000, // ----,----,----,----,----,----,---0,00|00
+		0x00000009, // ----,----,----,----,----,----,---0,10|01
+	}
+	nWants := []uint8{2, 2, 2}
+	extraWants := []uint8{
+		0xfc, // 1111,11|--
+		0x3c, // 0011,11|--
+		0x54, // 0101,01|--
+	}
+	uint32Outs := make([]uint32, len(ins))
+	for i, c := range ins {
+		out, err := c.PopUint32(size)
+		if err != nil {
+			t.Error(err)
+		}
+		uint32Outs[i] = out
+	}
+	if !reflect.DeepEqual(uint32Wants, uint32Outs) {
+		t.Errorf("wants: %v, outs=%v", uint32Wants, uint32Outs)
+	}
+	for i, buf := range ins {
+		if buf.n != nWants[i] {
+			t.Errorf("%dth element: want: %v, out=%v", i, nWants[i], buf.n)
+		}
+		if buf.extra != extraWants[i] {
+			t.Errorf("%dth element: want: %v, out=%v", i, extraWants[i], buf.extra)
+		}
+	}
+}
+
+// PopUint32: Case 2) Fetch next 11 bits from elements in `ins`.
+// Use case that range is across 1 byte border.
+// 1. |000 [<00000>|111111] {11}|00000000|11111111|00000000|11111111|00000000|11111111|
+// 2. |111 [<10000>|000011] {11}|11110000|00001111|11110000|00001111|11110000|00001111|
+// 3. |101 [<01010>|010101] {01}|10101010|01010101|10101010|01010101|10101010|01010101|
+func TestPopUint32Case2(t *testing.T) {
+	extras := []uint8{
+		0x00, // 0000,0---
+		0x80, // 1000,0---
+		0x50, // 0101,0---
+	}
+	ins := Setup(1, 3, extras, false)
+	size := uint8(11)
+	uint32Wants := []uint32{
+		0x0000003f, // ----,----,----,----,----,-000,0011,1111
+		0x00000403, // ----,----,----,----,----,-100,0000,0011
+		0x00000295, // ----,----,----,----,----,-010,1001,0101
+	}
+	nWants := []uint8{6, 6, 6}
+	extraWants := []uint8{
+		0xc0, // 11--,----
+		0xc0, // 11--,----
+		0x40, // 01--,----
+	}
+	uint32Outs := make([]uint32, len(ins))
+	for i, c := range ins {
+		out, err := c.PopUint32(size)
+		if err != nil {
+			t.Error(err)
+		}
+		uint32Outs[i] = out
+	}
+	if !reflect.DeepEqual(uint32Wants, uint32Outs) {
+		t.Errorf("wants: %x, outs=%x", uint32Wants, uint32Outs)
+	}
+	for i, buf := range ins {
+		if buf.n != nWants[i] {
+			t.Errorf("%dth element: want: %d, out=%d", i, nWants[i], buf.n)
+		}
+		if buf.extra != extraWants[i] {
+			t.Errorf("%dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
+		}
+	}
+}
+
+// PopUint32: Case 3) Fetch next 20 bits from elements in `ins`.
+// Use case that range is across 2 byte border.
+// 1. |000 [<00000>|11111111|0000000] {0}|11111111|00000000|11111111|00000000|11111111|
+// 2. |111 [<10000>|00001111|1111000] {0}|00001111|11110000|00001111|11110000|00001111|
+// 3. |101 [<01010>|01010101|1010101] {0}|01010101|10101010|01010101|10101010|01010101|
+func TestPopUint32Case3(t *testing.T) {
+	extras := []uint8{
+		0x00, // 0000,0|---
+		0x80, // 1000,0|---
+		0x50, // 0101,0|---
+	}
+	ins := Setup(1, 3, extras, false)
+	size := uint8(20)
+	uint32Wants := []uint32{
+		0x00007f80, // ----,----,----,0000,0|111,1111,1|000,0000
+		0x000807f8, // ----,----,----,1000,0|000,0111,1|111,1000
+		0x00052ad5, // ----,----,----,0101,0|010,1010,1|101,0101
+	}
+	nWants := []uint8{7, 7, 7}
+	extraWants := []uint8{
+		0x00, // 0|---,----
+		0x00, // 0|---,----
+		0x00, // 0|---,----
+	}
+	uint32Outs := make([]uint32, len(ins))
+	for i, c := range ins {
+		out, err := c.PopUint32(size)
+		if err != nil {
+			t.Error(err)
+		}
+		uint32Outs[i] = out
+	}
+	if !reflect.DeepEqual(uint32Wants, uint32Outs) {
+		t.Errorf("wants: %x, outs=%x", uint32Wants, uint32Outs)
+	}
+	for i, buf := range ins {
+		if buf.n != nWants[i] {
+			t.Errorf("%dth element: want: %d, out=%d", i, nWants[i], buf.n)
+		}
+		if buf.extra != extraWants[i] {
+			t.Errorf("%dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
+		}
+	}
+}
+
+// PopUint16: Case 4) Fetch next 22 bits from elements in `ins`.
+// Use case that 2 bytes are left, there's extra and specified range is
+// beyond tail of []byte. Returning all left bits and io.EOF
+// 1. |00000000|11111111|00000000|11111111|00000000|11 [<111111>|00000000|11111111|---]
+// 2. |11110000|00001111|11110000|00001111|11110000|00 [<001111>|11110000|00001111|---]
+// 3. |10101010|01010101|10101010|01010101|10101010|01 [<010101>|10101010|01010101|---]
+func TestPopUint32Case4(t *testing.T) {
+	extras := []uint8{
+		0xfc, // 1111,11|--
+		0x3c, // 0011,11|--
+		0x54, // 0101,01|--
+	}
+	ins := Setup(6, 2, extras, false)
+	size := uint8(22)
+	uint32Wants := []uint32{
+		0x003f00ff, // ----,----,--11,1111,|0000,0000,|1111,1111
+		0x000ff00f, // ----,----,--00,1111,|1111,0000,|0000,1111
+		0x0015aa55, // ----,----,--01,0101,|1010,1010,|0101,0101
+	}
+	nWants := []uint8{3, 3, 3}
+	extraWants := []uint8{
+		0x00, // ----,----
+		0x00, // ----,----
+		0x00, // ----,----
+	}
+	uint32Outs := make([]uint32, len(ins))
+	for i, c := range ins {
+		out, err := c.PopUint32(size)
+		if err != nil && err != io.EOF {
+			t.Error(err)
+		}
+		uint32Outs[i] = out
+	}
+	if !reflect.DeepEqual(uint32Wants, uint32Outs) {
+		t.Errorf("wants: %x, outs=%x", uint32Wants, uint32Outs)
+	}
+	for i, buf := range ins {
+		if buf.n != nWants[i] {
+			t.Errorf("n -> %dth element: want: %v, out=%v", i, nWants[i], buf.n)
+		}
+		if buf.extra != extraWants[i] {
+			t.Errorf("extra -> %dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
 		}
 	}
 }
