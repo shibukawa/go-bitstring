@@ -3,7 +3,6 @@ package bitarray
 import (
 	"errors"
 	"io"
-	"log"
 )
 
 const (
@@ -125,7 +124,6 @@ func (b *Buffer) PopUint32(size uint8) (uint32, error) {
 		}
 		leftSize := size - Uint16Size
 		bin32 := uint32(bin) << leftSize
-		log.Printf("b.n:%d", b.n)
 		bin8, err := b.PopUint8(leftSize)
 		if err == io.EOF {
 			bin32 = bin32 >> b.n
