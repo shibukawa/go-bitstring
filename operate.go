@@ -108,61 +108,83 @@ func (b *Buffer) PopUint32(size uint8) (uint32, error) {
 		return 0, ErrSizeTooLarge
 	}
 
-	switch {
-	case size <= Uint8Size:
+	if size <= Uint8Size {
 		bin, err := b.PopUint8(size)
 		return uint32(bin), err
-	case size <= Uint16Size:
+	} else if size <= Uint16Size {
 		bin, err := b.PopUint16(size)
 		return uint32(bin), err
-	case size <= Uint8Size+Uint16Size:
-		bin, err := b.PopUint16(Uint16Size)
-		if err == io.EOF {
-			b.n += size - Uint16Size
-			return uint32(bin), err
-		}
-		leftSize := size - Uint16Size
+	}
+
+	bin, err := b.PopUint16(Uint16Size)
+	if err == io.EOF {
+		b.n += size - Uint16Size
+		return uint32(bin), err
+	}
+	leftSize := size - Uint16Size
+
+	if leftSize <= Uint8Size {
 		bin32 := uint32(bin) << leftSize
 		bin8, err := b.PopUint8(leftSize)
 		if err == io.EOF {
 			bin32 = bin32 >> b.n
 		}
 		return bin32 + uint32(bin8), err
-	default:
-		bin, err := b.PopUint16(Uint16Size)
-		if err == io.EOF {
-			b.n += size - Uint16Size
-			return uint32(bin), err
-		}
-		leftSize := size - Uint16Size
-		bin32 := uint32(bin) << leftSize
-		bin16, err := b.PopUint16(leftSize)
-		if err == io.EOF {
-			bin32 = bin32 >> b.n
-		}
-		return bin32 + uint32(bin16), err
 	}
+
+	bin32 := uint32(bin) << leftSize
+	bin16, err := b.PopUint16(leftSize)
+	if err == io.EOF {
+		bin32 = bin32 >> b.n
+	}
+	return bin32 + uint32(bin16), err
 }
 
 // PopUint64 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
 // it returns bits left in the buffer and io.EOF
 // TODO(ymotongpoo): How about calling PopUint8 8 times?
 func (b *Buffer) PopUint64(size uint8) (uint64, error) {
-	if size > Uint32Size {
+	if size > Uint64Size {
 		return 0, ErrSizeTooLarge
 	}
 
-	var bin uint64
-	switch {
-	case size <= Uint8Size:
+	if size <= Uint8Size {
 		bin, err := b.PopUint8(size)
 		return uint64(bin), err
-	case size <= Uint16Size:
+	} else if size <= Uint16Size {
 		bin, err := b.PopUint16(size)
 		return uint64(bin), err
-	case size <= Uint32Size:
+	} else if size <= Uint32Size {
 		bin, err := b.PopUint32(size)
 		return uint64(bin), err
 	}
-	return bin, nil
+	bin, err := b.PopUint32(Uint32Size)
+	if err == io.EOF {
+		b.n += size - Uint32Size
+		return uint64(bin), err
+	}
+	leftSize := size - Uint32Size
+
+	if leftSize <= Uint8Size {
+		bin64 := uint64(bin) << leftSize
+		bin8, err := b.PopUint8(leftSize)
+		if err == io.EOF {
+			bin64 = bin64 >> b.n
+		}
+		return bin64 + uint64(bin8), err
+	} else if leftSize <= Uint16Size {
+		bin64 := uint64(bin) << leftSize
+		bin16, err := b.PopUint16(leftSize)
+		if err == io.EOF {
+			bin64 = bin64 >> b.n
+		}
+		return bin64 + uint64(bin16), err
+	}
+
+	bin64 := uint64(bin) << leftSize
+	bin32, err := b.PopUint32(leftSize)
+	if err == io.EOF {
+		bin64 = bin64 >> b.n
+	}
+	return bin64 + uint64(bin32), err
 }
