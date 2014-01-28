@@ -3,7 +3,6 @@ package bitarray
 import (
 	"errors"
 	"io"
-	"log"
 )
 
 const (
@@ -109,7 +108,6 @@ func (b *Buffer) PopUint32(size uint8) (uint32, error) {
 		return 0, ErrSizeTooLarge
 	}
 
-	var bin uint32
 	switch {
 	case size <= Uint8Size:
 		bin, err := b.PopUint8(size)
@@ -125,15 +123,25 @@ func (b *Buffer) PopUint32(size uint8) (uint32, error) {
 		}
 		leftSize := size - Uint16Size
 		bin32 := uint32(bin) << leftSize
-		log.Printf("b.n:%d", b.n)
 		bin8, err := b.PopUint8(leftSize)
 		if err == io.EOF {
 			bin32 = bin32 >> b.n
 		}
 		return bin32 + uint32(bin8), err
-
+	default:
+		bin, err := b.PopUint16(Uint16Size)
+		if err == io.EOF {
+			b.n += size - Uint16Size
+			return uint32(bin), err
+		}
+		leftSize := size - Uint16Size
+		bin32 := uint32(bin) << leftSize
+		bin16, err := b.PopUint16(leftSize)
+		if err == io.EOF {
+			bin32 = bin32 >> b.n
+		}
+		return bin32 + uint32(bin16), err
 	}
-	return bin, nil
 }
 
 // PopUint64 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
