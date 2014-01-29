@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-// Preparing test cases. Using following byte arreay as test cases.
-// 1. |00000000|11111111|00000000|11111111|00000000|11111111|00000000|11111111|
-// 2. |11110000|00001111|11110000|00001111|11110000|00001111|11110000|00001111|
-// 3. |10101010|01010101|10101010|01010101|10101010|01010101|10101010|01010101|
+// Preparing test cases. Using following 16 bytes arreay as test cases.
+// 1. |00000000|11111111|00000000|11111111|00000000|11111111|00000000|11111111|...
+// 2. |11110000|00001111|11110000|00001111|11110000|00001111|11110000|00001111|...
+// 3. |10101010|01010101|10101010|01010101|10101010|01010101|10101010|01010101|...
 //
 // m indicates bytes already read, n does bit position in current byte,
 // extras are left extra bits in each cases above, and unread is flag if
@@ -550,7 +550,7 @@ func TestPopUint16Case5(t *testing.T) {
 
 // PopUint32: Case 1) Fetch next 3 bits from elements in `ins`.
 // Use case that range can be handled within Uint8. Reusing same test case
-// as TestPopUint8Case3 and only difference is results are expected as []uint16.
+// as TestPopUint8Case3 and only difference is results are expected as []uint32.
 func TestPopUint32Case1(t *testing.T) {
 	extras := []uint8{
 		0x00, // 000|-,----
@@ -681,7 +681,7 @@ func TestPopUint32Case3(t *testing.T) {
 	}
 }
 
-// PopUint16: Case 4) Fetch next 23 bits from elements in `ins`.
+// PopUint32: Case 4) Fetch next 23 bits from elements in `ins`.
 // Use case that 2 bytes are left, there's extra and specified range is
 // beyond tail of []byte. Returning all left bits and io.EOF
 // 1. |00000000|11111111|00000000|11111111|00000000|...|11 [<111111>|00000000|11111111|-]
@@ -709,6 +709,229 @@ func TestPopUint32Case4(t *testing.T) {
 	uint32Outs := make([]uint32, len(ins))
 	for i, c := range ins {
 		out, err := c.PopUint32(size)
+		if err != nil && err != io.EOF {
+			t.Error(err)
+		}
+		uint32Outs[i] = out
+	}
+	if !reflect.DeepEqual(uint32Wants, uint32Outs) {
+		t.Errorf("wants: %x, outs=%x", uint32Wants, uint32Outs)
+	}
+	for i, buf := range ins {
+		if buf.n != nWants[i] {
+			t.Errorf("n -> %dth element: want: %v, out=%v", i, nWants[i], buf.n)
+		}
+		if buf.extra != extraWants[i] {
+			t.Errorf("extra -> %dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
+		}
+	}
+}
+
+// PopUint64: Case 1) Fetch next 3 bits from elements in `ins`.
+// Use case that range can be handled within Uint8. Reusing same test case
+// as TestPopUint8Case3 and only difference is results are expected as []uint64.
+func TestPopUint64Case1(t *testing.T) {
+	extras := []uint8{
+		0x00, // 000|-,----
+		0x00, // 000|-,----
+		0x40, // 010|-,----
+	}
+	ins := Setup(1, 5, extras, false)
+	size := uint8(5)
+	uint64Wants := []uint64{ // 16 hex
+		0x0000000000000003, // ----,...,----,----,----,----,----,---0,00|11
+		0x0000000000000000, // ----,...,----,----,----,----,----,---0,00|00
+		0x0000000000000009, // ----,...,----,----,----,----,----,---0,10|01
+	}
+	nWants := []uint8{2, 2, 2}
+	extraWants := []uint8{
+		0xfc, // 1111,11|--
+		0x3c, // 0011,11|--
+		0x54, // 0101,01|--
+	}
+	uint64Outs := make([]uint64, len(ins))
+	for i, c := range ins {
+		out, err := c.PopUint64(size)
+		if err != nil {
+			t.Error(err)
+		}
+		uint64Outs[i] = out
+	}
+	if !reflect.DeepEqual(uint64Wants, uint64Outs) {
+		t.Errorf("wants: %v, outs=%v", uint64Wants, uint64Outs)
+	}
+	for i, buf := range ins {
+		if buf.n != nWants[i] {
+			t.Errorf("%dth element: want: %v, out=%v", i, nWants[i], buf.n)
+		}
+		if buf.extra != extraWants[i] {
+			t.Errorf("%dth element: want: %v, out=%v", i, extraWants[i], buf.extra)
+		}
+	}
+}
+
+// PopUint64: Case 2) Fetch next 15 bits from elements in `ins`.
+// Use case that range is across 2 byte border. Reusing same test case
+// as TestPopUint16Case3 and only difference is results are expected as []uint64.
+func TestPopUint64Case2(t *testing.T) {
+	extras := []uint8{
+		0x00, // 0000,0|---
+		0x80, // 1000,0|---
+		0x50, // 0101,0|---
+	}
+	ins := Setup(1, 3, extras, false)
+	size := uint8(15)
+	uint64Wants := []uint64{ // 16 hex
+		0x00000000000003fc, // ----,----,----,...,-000,00|11,1111,11|00
+		0x000000000000403f, // ----,----,----,...,-100,00|00,0011,11|11
+		0x0000000000002956, // ----,----,----,...,-010,10|01,0101,01|10
+	}
+	nWants := []uint8{2, 2, 2}
+	extraWants := []uint8{
+		0x00, // 0000,00--
+		0xc0, // 1100,00--
+		0xa8, // 1010,10--
+	}
+	uint64Outs := make([]uint64, len(ins))
+	for i, c := range ins {
+		out, err := c.PopUint64(size)
+		if err != nil {
+			t.Error(err)
+		}
+		uint64Outs[i] = out
+	}
+	if !reflect.DeepEqual(uint64Wants, uint64Outs) {
+		t.Errorf("wants: %x, outs=%x", uint64Wants, uint64Outs)
+	}
+	for i, buf := range ins {
+		if buf.n != nWants[i] {
+			t.Errorf("%dth element: want: %d, out=%d", i, nWants[i], buf.n)
+		}
+		if buf.extra != extraWants[i] {
+			t.Errorf("%dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
+		}
+	}
+}
+
+// PopUint64: Case 3) Fetch next 20 bits from elements in `ins`.
+// Use case that range is across 2 byte border. Reusing same test case
+// as TestPopUint32Case3 and only difference is results are expected as []uint64.
+func TestPopUint64Case3(t *testing.T) {
+	extras := []uint8{
+		0x00, // 0000,0|---
+		0x80, // 1000,0|---
+		0x50, // 0101,0|---
+	}
+	ins := Setup(1, 3, extras, false)
+	size := uint8(20)
+	uint64Wants := []uint64{ // 16 hex
+		0x0000000000007f80, // ----,----,...,----,0000,0|111,1111,1|000,0000
+		0x00000000000807f8, // ----,----,...,----,1000,0|000,0111,1|111,1000
+		0x0000000000052ad5, // ----,----,...,----,0101,0|010,1010,1|101,0101
+	}
+	nWants := []uint8{7, 7, 7}
+	extraWants := []uint8{
+		0x00, // 0|---,----
+		0x00, // 0|---,----
+		0x00, // 0|---,----
+	}
+	uint64Outs := make([]uint64, len(ins))
+	for i, c := range ins {
+		out, err := c.PopUint64(size)
+		if err != nil {
+			t.Error(err)
+		}
+		uint64Outs[i] = out
+	}
+	if !reflect.DeepEqual(uint64Wants, uint64Outs) {
+		t.Errorf("wants: %x, outs=%x", uint64Wants, uint64Outs)
+	}
+	for i, buf := range ins {
+		if buf.n != nWants[i] {
+			t.Errorf("%dth element: want: %d, out=%d", i, nWants[i], buf.n)
+		}
+		if buf.extra != extraWants[i] {
+			t.Errorf("%dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
+		}
+	}
+}
+
+// PopUint64: Case 4) Fetch next 43 bits from elements in `ins`.
+// Use case that range is across 5 byte border.
+// 1. |00000000|11 [<111111>|00000000|11111111|00000000|11111111|00000] {000}|11111111|...
+// 2. |11110000|00 [<001111>|11110000|00001111|11110000|00001111|11110] {000}|00001111|...
+// 3. |10101010|01 [<010101>|10101010|01010101|10101010|01010101|10101] {010}|01010101|...
+func TestPopUint64Case4(t *testing.T) {
+	extras := []uint8{
+		0xfc, // 1111,11|--
+		0x3c, // 0011,11|--
+		0x54, // 0101,01|--
+	}
+	ins := Setup(2, 2, extras, false)
+	size := uint8(43)
+	uint64Wants := []uint64{ // 16 hex
+		0x000007e01fe01fe0, // ----,...,----,-111,111|0,0000,000|1,1111,111|0,0000,000|1,1111,111|0,0000
+		0x000001fe01fe01fe, // ----,...,----,-001,111|1,1110,000|0,0001,111|1,1110,000|0,0001,111|1,1110
+		0x000002b54ab54ab5, // ----,...,----,-010,101|1,0101,010|0,1010,101|1,0101,010|0,1010,101|1,0101
+	}
+	nWants := []uint8{5, 5, 5}
+	extraWants := []uint8{
+		0x00, // 000|-,----
+		0x00, // 000|-,----
+		0x40, // 010|-,----
+	}
+	uint64Outs := make([]uint64, len(ins))
+	for i, c := range ins {
+		out, err := c.PopUint64(size)
+		if err != nil {
+			t.Error(err)
+		}
+		uint64Outs[i] = out
+	}
+	if !reflect.DeepEqual(uint64Wants, uint64Outs) {
+		t.Errorf("wants: %x, outs=%x", uint64Wants, uint64Outs)
+	}
+	for i, buf := range ins {
+		if buf.n != nWants[i] {
+			t.Errorf("%dth element: want: %d, out=%d", i, nWants[i], buf.n)
+		}
+		if buf.extra != extraWants[i] {
+			t.Errorf("%dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
+		}
+	}
+}
+
+// PopUint64: Case 5) Fetch next 55 bits from elements in `ins`.
+// Use case that 2 bytes are left, there's extra and specified range is
+// beyond tail of []byte. Returning all left bits and io.EOF
+// 1. |00000000|...|111 [<11111|00000000|11111111|00000000|11111111|00000000|11111111|--]
+// 2. |11110000|...|000 [<01111|11110000|00001111|11110000|00001111|11110000|00001111|--]
+// 3. |10101010|...|010 [<10101|10101010|01010101|10101010|01010101|10101010|01010101|--]
+func TestPopUint32Case5(t *testing.T) {
+	extras := []uint8{
+		0xf8, // 1111,1|---
+		0x78, // 0111,1|---
+		0xa8, // 1010,1|---
+	}
+	ins := Setup(10, 3, extras, false)
+	size := uint8(55)
+	uint32Wants := []uint64{
+		// ----,----,---1,1111,|0000,0000,|1111,1111,|0000,0000,|1111,1111,|0000,0000,|1111,1111
+		0x001f00ff00ff00ff,
+		// ----,----,---0,1111,|1111,0000,|0000,1111,|1111,0000,|0000,1111,|1111,0000,|0000,1111
+		0x000ff00ff00ff00f,
+		// ----,----,---1,0101,|1010,1010,|0101,0101,|1010,1010,|0101,0101,|1010,1010,|0101,0101
+		0x0015aa55aa55aa55,
+	}
+	nWants := []uint8{2, 2, 2}
+	extraWants := []uint8{
+		0x00, // ----,----
+		0x00, // ----,----
+		0x00, // ----,----
+	}
+	uint32Outs := make([]uint64, len(ins))
+	for i, c := range ins {
+		out, err := c.PopUint64(size)
 		if err != nil && err != io.EOF {
 			t.Error(err)
 		}
