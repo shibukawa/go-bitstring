@@ -119,7 +119,7 @@ func Setup(m int, n uint8, extras []uint8, unread bool) []*Buffer {
 // 2. |[111] {10000}|00001111|11110000|00001111|11110000|00001111|11110000|00001111|...
 // 3. |[101] {01010}|01010101|10101010|01010101|10101010|01010101|10101010|01010101|...
 func TestPopUint8Case1(t *testing.T) {
-	size := uint8(3)
+	size := uint64(3)
 	ins := Setup(0, 0, nil, true)
 
 	uint8Wants := []uint8{
@@ -166,7 +166,7 @@ func TestPopUint8Case2(t *testing.T) {
 		0x50, // 0101,0---
 	}
 	ins := Setup(0, 3, extras, false)
-	size := uint8(2)
+	size := uint64(2)
 
 	uint8Wants := []uint8{
 		0x00, // ----,--00
@@ -213,7 +213,7 @@ func TestPopUint8Case3(t *testing.T) {
 		0x40, // 010|-,----
 	}
 	ins := Setup(1, 5, extras, false)
-	size := uint8(5)
+	size := uint64(5)
 	uint8Wants := []uint8{
 		0x03, // ---0,00|11
 		0x00, // ---0,00|00
@@ -259,7 +259,7 @@ func TestPopUint8Case4(t *testing.T) {
 		0x54, // 0101,01|--
 	}
 	ins := Setup(16, 2, extras, false)
-	size := uint8(7)
+	size := uint64(7)
 
 	uint8Wants := []uint8{
 		0x3f, // --|11,1111
@@ -305,7 +305,7 @@ func TestPopUint8Case5(t *testing.T) {
 		0x40, // 010|-,----
 	}
 	ins := Setup(1, 5, extras, false)
-	size := uint8(8)
+	size := uint64(8)
 	uint8Wants := []uint8{
 		0x1f, // 000|1,1111
 		0x01, // 000|0,0001
@@ -348,7 +348,7 @@ func TestPopUint16Case1(t *testing.T) {
 		0x40, // 010|-,----
 	}
 	ins := Setup(1, 5, extras, false)
-	size := uint8(5)
+	size := uint64(5)
 	uint16Wants := []uint16{
 		0x0003, // ----,----,---0,00|11
 		0x0000, // ----,----,---0,00|00
@@ -393,7 +393,7 @@ func TestPopUint16Case2(t *testing.T) {
 		0x50, // 0101,0---
 	}
 	ins := Setup(1, 3, extras, false)
-	size := uint8(11)
+	size := uint64(11)
 	uint16Wants := []uint16{
 		0x003f, // ----,-000,0011,1111
 		0x0403, // ----,-100,0000,0011
@@ -438,7 +438,7 @@ func TestPopUint16Case3(t *testing.T) {
 		0x50, // 0101,0|---
 	}
 	ins := Setup(1, 3, extras, false)
-	size := uint8(15)
+	size := uint64(15)
 	uint16Wants := []uint16{
 		0x03fc, // -000,00|11,1111,11|00
 		0x403f, // -100,00|00,0011,11|11
@@ -484,7 +484,7 @@ func TestPopUint16Case4(t *testing.T) {
 		0x54, // 0101,01|--
 	}
 	ins := Setup(16, 2, extras, false)
-	size := uint8(10)
+	size := uint64(10)
 	uint16Wants := []uint16{
 		0x003f, // ----,----,--11,1111
 		0x000f, // ----,----,--00,1111
@@ -530,7 +530,7 @@ func TestPopUint16Case5(t *testing.T) {
 		0x00, // 0|---,----
 	}
 	ins := Setup(15, 7, extras, false)
-	size := uint8(10)
+	size := uint64(10)
 	uint16Wants := []uint16{
 		0x00ff, // ----,---0,1111,1111
 		0x000f, // ----,---0,0000,1111
@@ -573,7 +573,7 @@ func TestPopUint32Case1(t *testing.T) {
 		0x40, // 010|-,----
 	}
 	ins := Setup(1, 5, extras, false)
-	size := uint8(5)
+	size := uint64(5)
 	uint32Wants := []uint32{
 		0x00000003, // ----,----,----,----,----,----,---0,00|11
 		0x00000000, // ----,----,----,----,----,----,---0,00|00
@@ -618,7 +618,7 @@ func TestPopUint32Case2(t *testing.T) {
 		0x50, // 0101,0---
 	}
 	ins := Setup(1, 3, extras, false)
-	size := uint8(11)
+	size := uint64(11)
 	uint32Wants := []uint32{
 		0x0000003f, // ----,----,----,----,----,-000,0011,1111
 		0x00000403, // ----,----,----,----,----,-100,0000,0011
@@ -663,7 +663,7 @@ func TestPopUint32Case3(t *testing.T) {
 		0x50, // 0101,0|---
 	}
 	ins := Setup(1, 3, extras, false)
-	size := uint8(20)
+	size := uint64(20)
 	uint32Wants := []uint32{
 		0x00007f80, // ----,----,----,0000,0|111,1111,1|000,0000
 		0x000807f8, // ----,----,----,1000,0|000,0111,1|111,1000
@@ -709,7 +709,7 @@ func TestPopUint32Case4(t *testing.T) {
 		0x54, // 0101,01|--
 	}
 	ins := Setup(14, 2, extras, false)
-	size := uint8(23)
+	size := uint64(23)
 	uint32Wants := []uint32{
 		0x003f00ff, // ----,----,--11,1111,|0000,0000,|1111,1111
 		0x000ff00f, // ----,----,--00,1111,|1111,0000,|0000,1111
@@ -752,7 +752,7 @@ func TestPopUint64Case1(t *testing.T) {
 		0x40, // 010|-,----
 	}
 	ins := Setup(1, 5, extras, false)
-	size := uint8(5)
+	size := uint64(5)
 	uint64Wants := []uint64{ // 16 hex
 		0x0000000000000003, // ----,...,----,----,----,----,----,---0,00|11
 		0x0000000000000000, // ----,...,----,----,----,----,----,---0,00|00
@@ -795,7 +795,7 @@ func TestPopUint64Case2(t *testing.T) {
 		0x50, // 0101,0|---
 	}
 	ins := Setup(1, 3, extras, false)
-	size := uint8(15)
+	size := uint64(15)
 	uint64Wants := []uint64{ // 16 hex
 		0x00000000000003fc, // ----,----,----,...,-000,00|11,1111,11|00
 		0x000000000000403f, // ----,----,----,...,-100,00|00,0011,11|11
@@ -838,7 +838,7 @@ func TestPopUint64Case3(t *testing.T) {
 		0x50, // 0101,0|---
 	}
 	ins := Setup(1, 3, extras, false)
-	size := uint8(20)
+	size := uint64(20)
 	uint64Wants := []uint64{ // 16 hex
 		0x0000000000007f80, // ----,----,...,----,0000,0|111,1111,1|000,0000
 		0x00000000000807f8, // ----,----,...,----,1000,0|000,0111,1|111,1000
@@ -883,7 +883,7 @@ func TestPopUint64Case4(t *testing.T) {
 		0x54, // 0101,01|--
 	}
 	ins := Setup(2, 2, extras, false)
-	size := uint8(43)
+	size := uint64(43)
 	uint64Wants := []uint64{ // 16 hex
 		0x000007e01fe01fe0, // ----,...,----,-111,111|0,0000,000|1,1111,111|0,0000,000|1,1111,111|0,0000
 		0x000001fe01fe01fe, // ----,...,----,-001,111|1,1110,000|0,0001,111|1,1110,000|0,0001,111|1,1110
@@ -929,7 +929,7 @@ func TestPopUint32Case5(t *testing.T) {
 		0xa8, // 1010,1|---
 	}
 	ins := Setup(10, 3, extras, false)
-	size := uint8(55)
+	size := uint64(55)
 	uint32Wants := []uint64{
 		// ----,----,---1,1111,|0000,0000,|1111,1111,|0000,0000,|1111,1111,|0000,0000,|1111,1111
 		0x001f00ff00ff00ff,

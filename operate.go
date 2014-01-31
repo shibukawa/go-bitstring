@@ -21,14 +21,14 @@ import (
 )
 
 const (
-	Uint8Size  = uint8(8)
-	Uint16Size = uint8(16)
-	Uint32Size = uint8(32)
-	Uint64Size = uint8(64)
-	Int8Size   = uint8(8)
-	Int16Size  = uint8(16)
-	Int32Size  = uint8(32)
-	Int64Size  = uint8(64)
+	Uint8Size  = uint64(8)
+	Uint16Size = uint64(16)
+	Uint32Size = uint64(32)
+	Uint64Size = uint64(64)
+	Int8Size   = uint64(8)
+	Int16Size  = uint64(16)
+	Int32Size  = uint64(32)
+	Int64Size  = uint64(64)
 )
 
 // ErrSizeTooLarge is passed to panic if specified size for operations is too large
@@ -52,34 +52,34 @@ func NewBuffer(b io.ByteReader) *Buffer {
 
 // PopUint8 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
 // it returns bits left in the buffer and io.EOF
-func (b *Buffer) PopUint8(size uint8) (uint8, error) {
+func (b *Buffer) PopUint8(size uint64) (uint8, error) {
 	if size > Uint8Size {
 		return 0, ErrSizeTooLarge
 	}
 
 	var bin uint8
-	if b.unread || b.n+size >= Uint8Size {
+	if b.unread || uint64(b.n)+size >= Uint8Size {
 		c, err := b.buf.ReadByte()
 		if err == io.EOF {
 			bin = b.extra >> b.n
-			b.n += size - Uint8Size // Add overflowed bit size
+			b.n += uint8(size) - uint8(Uint8Size) // Add overflowed bit size
 			b.extra = 0x00
 			return bin, io.EOF
 		}
 		if err != nil {
 			return 0, err
 		}
-		n := (b.n + size) % Uint8Size
+		n := (uint64(b.n) + size) % Uint8Size
 		bin = uint8(c) >> (Uint8Size - n)
 		bin += b.extra >> b.n << n
 		b.extra = uint8(c) << n
-		b.n = n
+		b.n = uint8(n)
 		if b.unread {
 			b.unread = false
 		}
 	} else {
 		bin = b.extra >> (Uint8Size - size)
-		b.n += size
+		b.n += uint8(size)
 		b.extra = b.extra << size
 	}
 	return bin, nil
@@ -87,7 +87,7 @@ func (b *Buffer) PopUint8(size uint8) (uint8, error) {
 
 // PopUint16 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
 // it returns bits left in the buffer and io.EOF
-func (b *Buffer) PopUint16(size uint8) (uint16, error) {
+func (b *Buffer) PopUint16(size uint64) (uint16, error) {
 	if size > Uint16Size {
 		return 0, ErrSizeTooLarge
 	}
@@ -98,7 +98,7 @@ func (b *Buffer) PopUint16(size uint8) (uint16, error) {
 	} else {
 		bin, err := b.PopUint8(Uint8Size)
 		if err == io.EOF {
-			b.n += size - Uint8Size // Add overflowed bit size
+			b.n += uint8(size - Uint8Size) // Add overflowed bit size
 			return uint16(bin), err
 		}
 		if err != nil {
@@ -117,8 +117,7 @@ func (b *Buffer) PopUint16(size uint8) (uint16, error) {
 
 // PopUint32 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
 // it returns bits left in the buffer and io.EOF
-// TODO(ymotongpoo): How about calling PopUint8 4 times?
-func (b *Buffer) PopUint32(size uint8) (uint32, error) {
+func (b *Buffer) PopUint32(size uint64) (uint32, error) {
 	if size > Uint32Size {
 		return 0, ErrSizeTooLarge
 	}
@@ -133,7 +132,7 @@ func (b *Buffer) PopUint32(size uint8) (uint32, error) {
 
 	bin, err := b.PopUint16(Uint16Size)
 	if err == io.EOF {
-		b.n += size - Uint16Size
+		b.n += uint8(size - Uint16Size)
 		return uint32(bin), err
 	}
 	leftSize := size - Uint16Size
@@ -158,7 +157,7 @@ func (b *Buffer) PopUint32(size uint8) (uint32, error) {
 // PopUint64 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
 // it returns bits left in the buffer and io.EOF
 // TODO(ymotongpoo): How about calling PopUint8 8 times?
-func (b *Buffer) PopUint64(size uint8) (uint64, error) {
+func (b *Buffer) PopUint64(size uint64) (uint64, error) {
 	if size > Uint64Size {
 		return 0, ErrSizeTooLarge
 	}
@@ -175,7 +174,7 @@ func (b *Buffer) PopUint64(size uint8) (uint64, error) {
 	}
 	bin, err := b.PopUint32(Uint32Size)
 	if err == io.EOF {
-		b.n += size - Uint32Size
+		b.n += uint8(size - Uint32Size)
 		return uint64(bin), err
 	}
 	leftSize := size - Uint32Size
