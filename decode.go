@@ -58,6 +58,7 @@ func (d *Decoder) Unmarshal(v interface{}) error {
 	}
 
 	for i := 0; i < st.NumField(); i++ {
+		log.Printf("---- %s", typ.Field(i).Name)
 		field := st.Field(i)
 		sizeStr := typ.Field(i).Tag.Get("bit")
 		if len(sizeStr) == 0 {
@@ -71,7 +72,6 @@ func (d *Decoder) Unmarshal(v interface{}) error {
 		// TODO(ymotongpoo): Require refactoring
 		switch field.Kind() {
 		case reflect.Uint8:
-			log.Printf("%s: Uint8", typ.Field(i).Name)
 			if size > Uint8Size {
 				return ErrFieldSizeTooLarge
 			}
@@ -84,7 +84,6 @@ func (d *Decoder) Unmarshal(v interface{}) error {
 			}
 			st.Field(i).SetUint(uint64(bit))
 		case reflect.Uint16:
-			log.Printf("%s: Uint16", typ.Field(i).Name)
 			if size > Uint16Size {
 				return ErrFieldSizeTooLarge
 			}
@@ -97,7 +96,6 @@ func (d *Decoder) Unmarshal(v interface{}) error {
 			}
 			st.Field(i).SetUint(uint64(bit))
 		case reflect.Uint32:
-			log.Printf("%s: Uint32", typ.Field(i).Name)
 			if size > Uint32Size {
 				return ErrFieldSizeTooLarge
 			}
@@ -110,7 +108,6 @@ func (d *Decoder) Unmarshal(v interface{}) error {
 			}
 			st.Field(i).SetUint(uint64(bit))
 		case reflect.Uint64:
-			log.Printf("%s: Uint64", typ.Field(i).Name)
 			if size > Uint64Size {
 				return ErrFieldSizeTooLarge
 			}
