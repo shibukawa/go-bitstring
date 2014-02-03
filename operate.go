@@ -156,7 +156,6 @@ func (b *Buffer) PopUint32(size uint64) (uint32, error) {
 
 // PopUint64 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
 // it returns bits left in the buffer and io.EOF
-// TODO(ymotongpoo): How about calling PopUint8 8 times?
 func (b *Buffer) PopUint64(size uint64) (uint64, error) {
 	if size > Uint64Size {
 		return 0, ErrSizeTooLarge
@@ -201,4 +200,10 @@ func (b *Buffer) PopUint64(size uint64) (uint64, error) {
 		bin64 = bin64 >> b.n
 	}
 	return bin64 + uint64(bin32), err
+}
+
+// PopBytes extract first `size` bytes from Buffer. If buffer reaches tail of buffer,
+// it returns bytes left in the buffer and io.EOF
+func (b *Buffer) PopBytes(size uint64) ([]byte, error) {
+
 }
