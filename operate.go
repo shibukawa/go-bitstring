@@ -18,7 +18,6 @@ package bitarray
 import (
 	"errors"
 	"io"
-	"log"
 )
 
 const (
@@ -58,11 +57,41 @@ func (b *Buffer) PopUint8(size uint64) (uint8, error) {
 		return 0, ErrSizeTooLarge
 	}
 
-	var bin uint8
-	if b.unread || uint64(b.n)+size >= Uint8Size {
+	if b.unread {
+		c, err := b.buf.ReadByte()
+		if err != nil { // Including io.EOF
+			return 0, err
+		}
+		bin := uint8(c) >> (Uint8Size - size)
+		if size == Uint8Size {
+			c, err = b.buf.ReadByte()
+			if err != nil {
+				return 0, err
+			}
+			b.extra = uint8(c)
+		} else {
+			b.extra = uint8(c) << size
+		}
+		b.n = uint8(size % Uint8Size)
+		b.unread = false
+		return bin, nil
+	} else if uint64(b.n)+size == Uint8Size {
+		bin := b.extra >> b.n
+		c, err := b.buf.ReadByte()
+		b.n = 0
+		if err == io.EOF {
+			b.extra = uint8(0x00)
+			return bin, err
+		}
+		if err != nil {
+			return 0, err
+		}
+		b.extra = uint8(c)
+		return bin, nil
+	} else if uint64(b.n)+size > Uint8Size {
 		c, err := b.buf.ReadByte()
 		if err == io.EOF {
-			bin = b.extra >> b.n
+			bin := b.extra >> b.n
 			b.n += uint8(size) - uint8(Uint8Size) // Add overflowed bit size
 			b.extra = 0x00
 			return bin, io.EOF
@@ -71,19 +100,17 @@ func (b *Buffer) PopUint8(size uint64) (uint8, error) {
 			return 0, err
 		}
 		n := (uint64(b.n) + size) % Uint8Size
-		bin = uint8(c) >> (Uint8Size - n)
+		bin := uint8(c) >> (Uint8Size - n)
 		bin += b.extra >> b.n << n
 		b.extra = uint8(c) << n
 		b.n = uint8(n)
-		if b.unread {
-			b.unread = false
-		}
+		return bin, nil
 	} else {
-		bin = b.extra >> (Uint8Size - size)
+		bin := b.extra >> (Uint8Size - size)
 		b.n += uint8(size)
 		b.extra = b.extra << size
+		return bin, nil
 	}
-	return bin, nil
 }
 
 // PopUint16 extract next `size` bits from Buffer. If buffer reaches tail of buffer,
@@ -210,7 +237,6 @@ func (b *Buffer) PopUint64(size uint64) (uint64, error) {
 // it returns bits left in the buffer and io.EOF
 func (b *Buffer) PopBytes(size uint64) ([]byte, error) {
 	bytes := []byte{}
-	log.Printf("b: %#v, start: %#v", b.buf, bytes)
 	for i := uint64(0); i < size; i++ {
 		byt, err := b.PopUint8(Uint8Size)
 		if err != nil {

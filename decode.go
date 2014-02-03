@@ -58,7 +58,6 @@ func (d *Decoder) Unmarshal(v interface{}) error {
 	}
 
 	for i := 0; i < st.NumField(); i++ {
-		log.Printf("---- %s", typ.Field(i).Name)
 		field := st.Field(i)
 		sizeStr := typ.Field(i).Tag.Get("bit")
 		if len(sizeStr) == 0 {
@@ -68,6 +67,8 @@ func (d *Decoder) Unmarshal(v interface{}) error {
 		if err != nil {
 			return err
 		}
+
+		//log.Printf("%v", typ.Field(i).Name)
 
 		// TODO(ymotongpoo): Require refactoring
 		switch field.Kind() {

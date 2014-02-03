@@ -146,20 +146,61 @@ func TestPopUint8Case1(t *testing.T) {
 	}
 	for i, buf := range ins {
 		if buf.n != nWants[i] {
-			t.Errorf("%dth element: want: %v, out=%v", i, nWants[i], buf.n)
+			t.Errorf("n -> %dth element: want: %v, out=%v", i, nWants[i], buf.n)
 		}
 		if buf.extra != extraWants[i] {
-			t.Errorf("%dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
+			t.Errorf("extra -> %dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
 		}
 	}
 }
 
-// PopUint8: Case 2) Fetch next 2 bits from elements in `ins`.
+// PopUint8: Case 2) Fetch first 8 bits from elements in `ins`.
+// Use case that poping bits from head of []byte.
+// 1. |[00000000]|11111111|00000000|11111111|00000000|11111111|00000000|11111111|...
+// 2. |[11110000]|00001111|11110000|00001111|11110000|00001111|11110000|00001111|...
+// 3. |[10101010]|01010101|10101010|01010101|10101010|01010101|10101010|01010101|...
+func TestPopUint8Case2(t *testing.T) {
+	size := uint64(8)
+	ins := Setup(0, 0, nil, true)
+
+	uint8Wants := []uint8{
+		0x00, // 0000,0000
+		0xf0, // 1111,0000
+		0xaa, // 1010,1010
+	}
+	nWants := []uint8{0, 0, 0}
+	extraWants := []uint8{
+		0xff, // 1111,1111
+		0x0f, // 0000,1111
+		0x55, // 0101,0101
+	}
+	uint8Outs := make([]uint8, len(ins))
+	for i, c := range ins {
+		out, err := c.PopUint8(size)
+		if err != nil {
+			t.Error(err)
+		}
+		uint8Outs[i] = out
+	}
+	if !reflect.DeepEqual(uint8Wants, uint8Outs) {
+		t.Errorf("wants: %#x, outs=%#x", uint8Wants, uint8Outs)
+	}
+	for i, buf := range ins {
+		if buf.n != nWants[i] {
+			t.Errorf("n -> %dth element: want: %v, out=%v", i, nWants[i], buf.n)
+		}
+		if buf.extra != extraWants[i] {
+			t.Errorf("extra -> %dth element: want: %b, out=%b", i, extraWants[i], buf.extra)
+		}
+	}
+}
+
+// PopUint8: Case 3) Fetch next 3 bits from elements in `ins`.
 // Use case that there's extra and specified range is behind next byte border.
 // 1. |000 [<00] {000>}|11111111|00000000|11111111|00000000|11111111|00000000|11111111|...
 // 2. |111 [<10] {000>}|00001111|11110000|00001111|11110000|00001111|11110000|00001111|...
 // 3. |101 [<01] {010>}|01010101|10101010|01010101|10101010|01010101|10101010|01010101|...
-func TestPopUint8Case2(t *testing.T) {
+func TestPopUint8Case3(t *testing.T) {
 	extras := []uint8{
 		0x00, // 0000,0---
 		0x80, // 1000,0---
@@ -201,12 +242,12 @@ func TestPopUint8Case2(t *testing.T) {
 	}
 }
 
-// PopUint8: Case 3) Fetch next 5 bits from elements in `ins`.
+// PopUint8: Case 4) Fetch next 5 bits from elements in `ins`.
 // Use case that there's extra and specified range crosses byte border.
 // 1. |00000 [<000>|11] {111111}|00000000|11111111|00000000|11111111|00000000|11111111|...
 // 2. |11110 [<000>|00] {001111}|11110000|00001111|11110000|00001111|11110000|00001111|...
 // 3. |10101 [<010>|01] {010101}|10101010|01010101|10101010|01010101|10101010|01010101|...
-func TestPopUint8Case3(t *testing.T) {
+func TestPopUint8Case4(t *testing.T) {
 	extras := []uint8{
 		0x00, // 000|-,----
 		0x00, // 000|-,----
@@ -246,13 +287,13 @@ func TestPopUint8Case3(t *testing.T) {
 	}
 }
 
-// PopUint8: Case 4) Fetch next 7 bits from elements in `ins`
+// PopUint8: Case 5) Fetch next 7 bits from elements in `ins`
 // Use case that all bytes are read, there's extra and specified range is
 // beyond tail of []byte. Returning all left bits and io.EOF.
 // 1. |00000000|11111111|00000000|11111111|00000000|...|11111111|00000000|11 [<111111>|-]
 // 2. |11110000|00001111|11110000|00001111|11110000|...|00001111|11110000|00 [<001111>|-]
 // 3. |10101010|01010101|10101010|01010101|10101010|...|01010101|10101010|01 [<010101>|-]
-func TestPopUint8Case4(t *testing.T) {
+func TestPopUint8Case5(t *testing.T) {
 	extras := []uint8{
 		0xfc, // 1111,11|--
 		0x3c, // 0011,11|--
@@ -293,12 +334,12 @@ func TestPopUint8Case4(t *testing.T) {
 	}
 }
 
-// PopUint8: Case 5) Fetch 8 bits from elements in `ins`.
+// PopUint8: Case 6) Fetch 8 bits from elements in `ins`.
 // Use case that there's extra and specified range crosses byte border.
 // 1. |00000 [<000>|11111] {111}|00000000|11111111|00000000|11111111|00000000|11111111|...
 // 2. |11110 [<000>|00001] {111}|11110000|00001111|11110000|00001111|11110000|00001111|...
 // 3. |10101 [<010>|01010] {101}|10101010|01010101|10101010|01010101|10101010|01010101|...
-func TestPopUint8Case5(t *testing.T) {
+func TestPopUint8Case6(t *testing.T) {
 	extras := []uint8{
 		0x00, // 000|-,----
 		0x00, // 000|-,----
@@ -340,7 +381,7 @@ func TestPopUint8Case5(t *testing.T) {
 
 // PopUint16: Case 1) Fetch next 3 bits from elements in `ins`.
 // Use case that range can be handled within Uint8. Reusing same test case
-// as TestPopUint8Case3 and only difference is results are expected as []uint16.
+// as TestPopUint8Case4 and only difference is results are expected as []uint16.
 func TestPopUint16Case1(t *testing.T) {
 	extras := []uint8{
 		0x00, // 000|-,----
@@ -565,7 +606,7 @@ func TestPopUint16Case5(t *testing.T) {
 
 // PopUint32: Case 1) Fetch next 3 bits from elements in `ins`.
 // Use case that range can be handled within Uint8. Reusing same test case
-// as TestPopUint8Case3 and only difference is results are expected as []uint32.
+// as TestPopUint8Case4 and only difference is results are expected as []uint32.
 func TestPopUint32Case1(t *testing.T) {
 	extras := []uint8{
 		0x00, // 000|-,----
@@ -744,7 +785,7 @@ func TestPopUint32Case4(t *testing.T) {
 
 // PopUint64: Case 1) Fetch next 3 bits from elements in `ins`.
 // Use case that range can be handled within Uint8. Reusing same test case
-// as TestPopUint8Case3 and only difference is results are expected as []uint64.
+// as TestPopUint8Case4 and only difference is results are expected as []uint64.
 func TestPopUint64Case1(t *testing.T) {
 	extras := []uint8{
 		0x00, // 000|-,----
@@ -981,8 +1022,8 @@ func TestPopBytesCase1(t *testing.T) {
 	nWants := []uint8{0, 0, 0}
 	extraWants := []uint8{
 		0x00, // 0000,0000
-		0x00, // 0000,0000
-		0x00, // 0000,0000
+		0xf0, // 1111,0000
+		0xaa, // 1010,1010
 	}
 	bytesOuts := make([][]byte, len(ins))
 	for i, c := range ins {
@@ -1003,5 +1044,4 @@ func TestPopBytesCase1(t *testing.T) {
 			t.Errorf("extra -> %dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
 		}
 	}
-
 }
