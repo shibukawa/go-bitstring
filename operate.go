@@ -18,6 +18,7 @@ package bitarray
 import (
 	"errors"
 	"io"
+	"log"
 )
 
 const (
@@ -50,7 +51,7 @@ func NewBuffer(b io.ByteReader) *Buffer {
 	}
 }
 
-// PopUint8 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
+// PopUint8 extract next `size` bits from Buffer. If buffer reaches tail of buffer,
 // it returns bits left in the buffer and io.EOF
 func (b *Buffer) PopUint8(size uint64) (uint8, error) {
 	if size > Uint8Size {
@@ -85,7 +86,7 @@ func (b *Buffer) PopUint8(size uint64) (uint8, error) {
 	return bin, nil
 }
 
-// PopUint16 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
+// PopUint16 extract next `size` bits from Buffer. If buffer reaches tail of buffer,
 // it returns bits left in the buffer and io.EOF
 func (b *Buffer) PopUint16(size uint64) (uint16, error) {
 	if size > Uint16Size {
@@ -97,11 +98,10 @@ func (b *Buffer) PopUint16(size uint64) (uint16, error) {
 		return uint16(bin), err
 	} else {
 		bin, err := b.PopUint8(Uint8Size)
-		if err == io.EOF {
-			b.n += uint8(size - Uint8Size) // Add overflowed bit size
-			return uint16(bin), err
-		}
 		if err != nil {
+			if err == io.EOF {
+				b.n += uint8(size - Uint8Size) // Add overflowed bit size
+			}
 			return uint16(bin), err
 		}
 		leftSize := size - Uint8Size
@@ -115,7 +115,7 @@ func (b *Buffer) PopUint16(size uint64) (uint16, error) {
 	}
 }
 
-// PopUint32 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
+// PopUint32 extract next `size` bits from Buffer. If buffer reaches tail of buffer,
 // it returns bits left in the buffer and io.EOF
 func (b *Buffer) PopUint32(size uint64) (uint32, error) {
 	if size > Uint32Size {
@@ -131,8 +131,10 @@ func (b *Buffer) PopUint32(size uint64) (uint32, error) {
 	}
 
 	bin, err := b.PopUint16(Uint16Size)
-	if err == io.EOF {
-		b.n += uint8(size - Uint16Size)
+	if err != nil {
+		if err == io.EOF {
+			b.n += uint8(size - Uint16Size)
+		}
 		return uint32(bin), err
 	}
 	leftSize := size - Uint16Size
@@ -154,7 +156,7 @@ func (b *Buffer) PopUint32(size uint64) (uint32, error) {
 	return bin32 + uint32(bin16), err
 }
 
-// PopUint64 extract first `size` bits from Buffer. If buffer reaches tail of buffer,
+// PopUint64 extract next `size` bits from Buffer. If buffer reaches tail of buffer,
 // it returns bits left in the buffer and io.EOF
 func (b *Buffer) PopUint64(size uint64) (uint64, error) {
 	if size > Uint64Size {
@@ -172,8 +174,10 @@ func (b *Buffer) PopUint64(size uint64) (uint64, error) {
 		return uint64(bin), err
 	}
 	bin, err := b.PopUint32(Uint32Size)
-	if err == io.EOF {
-		b.n += uint8(size - Uint32Size)
+	if err != nil {
+		if err == io.EOF {
+			b.n += uint8(size - Uint32Size)
+		}
 		return uint64(bin), err
 	}
 	leftSize := size - Uint32Size
@@ -202,8 +206,18 @@ func (b *Buffer) PopUint64(size uint64) (uint64, error) {
 	return bin64 + uint64(bin32), err
 }
 
-// PopBytes extract first `size` bytes from Buffer. If buffer reaches tail of buffer,
-// it returns bytes left in the buffer and io.EOF
+// PopBytes extract next `size` bytes from Buffer. If buffer reaches tail of buffer,
+// it returns bits left in the buffer and io.EOF
 func (b *Buffer) PopBytes(size uint64) ([]byte, error) {
-
+	bytes := []byte{}
+	log.Printf("b: %#v, start: %#v", b.buf, bytes)
+	for i := uint64(0); i < size; i++ {
+		byt, err := b.PopUint8(Uint8Size)
+		if err != nil {
+			bytes = append(bytes, byt)
+			return bytes, err
+		}
+		bytes = append(bytes, byt)
+	}
+	return bytes, nil
 }

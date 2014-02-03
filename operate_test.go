@@ -922,7 +922,7 @@ func TestPopUint64Case4(t *testing.T) {
 // 1. |00000000|...|111 [<11111|00000000|11111111|00000000|11111111|00000000|11111111|--]
 // 2. |11110000|...|000 [<01111|11110000|00001111|11110000|00001111|11110000|00001111|--]
 // 3. |10101010|...|010 [<10101|10101010|01010101|10101010|01010101|10101010|01010101|--]
-func TestPopUint32Case5(t *testing.T) {
+func TestPopUint64Case5(t *testing.T) {
 	extras := []uint8{
 		0xf8, // 1111,1|---
 		0x78, // 0111,1|---
@@ -963,4 +963,45 @@ func TestPopUint32Case5(t *testing.T) {
 			t.Errorf("extra -> %dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
 		}
 	}
+}
+
+// PopUint64: Case 1) Fetch first 4 bytes from elements in `ins`.
+// 1. [|00000000|11111111|00000000|11111111|] 00000000|11111111|00000000|11111111|...
+// 2. [|11110000|00001111|11110000|00001111|] 11110000|00001111|11110000|00001111|...
+// 3. [|10101010|01010101|10101010|01010101|] 10101010|01010101|10101010|01010101|...
+func TestPopBytesCase1(t *testing.T) {
+	size := uint64(4)
+	ins := Setup(0, 0, nil, true)
+
+	wants := [][]byte{
+		[]byte{0x00, 0xff, 0x00, 0xff}, // 0000,0000|1111,1111|0000,0000|1111,1111
+		[]byte{0xf0, 0x0f, 0xf0, 0x0f}, // 1111,0000|0000,1111|1111,0000|0000,1111
+		[]byte{0xaa, 0x55, 0xaa, 0x55}, // 1010,1010|0101,0101|1010,1010|0101,0101
+	}
+	nWants := []uint8{0, 0, 0}
+	extraWants := []uint8{
+		0x00, // 0000,0000
+		0x00, // 0000,0000
+		0x00, // 0000,0000
+	}
+	bytesOuts := make([][]byte, len(ins))
+	for i, c := range ins {
+		out, err := c.PopBytes(size)
+		if err != nil && err != io.EOF {
+			t.Error(err)
+		}
+		bytesOuts[i] = out
+	}
+	if !reflect.DeepEqual(wants, bytesOuts) {
+		t.Errorf("wants: %x, outs=%x", wants, bytesOuts)
+	}
+	for i, buf := range ins {
+		if buf.n != nWants[i] {
+			t.Errorf("n -> %dth element: want: %v, out=%v", i, nWants[i], buf.n)
+		}
+		if buf.extra != extraWants[i] {
+			t.Errorf("extra -> %dth element: want: %x, out=%x", i, extraWants[i], buf.extra)
+		}
+	}
+
 }
