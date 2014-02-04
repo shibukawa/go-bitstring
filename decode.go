@@ -24,7 +24,8 @@ import (
 )
 
 var (
-	ErrFieldSizeTooLarge = errors.New("bitarray: Specified bit size is too large for field")
+	ErrFieldSizeTooLarge    = errors.New("bitarray: Specified bit size is too large for field")
+	ErrUnsupportedFieldType = errors.New("bitarray: Field type must be uint/byte or slice of them")
 )
 
 // Decoder reads and decodes bit array objects from an input stream
@@ -54,21 +55,32 @@ func (d *Decoder) Unmarshal(v interface{}) error {
 	typ := st.Type()
 	if typ.Kind() != reflect.Struct {
 		return errors.New("bitarray.Unmarshal: invalid type " + st.String())
-
 	}
 
 	for i := 0; i < st.NumField(); i++ {
 		field := st.Field(i)
-		sizeStr := typ.Field(i).Tag.Get("bit")
+		sizeStr := typ.Field(i).Tag.Get("bits")
 		if len(sizeStr) == 0 {
-			continue
+			sizeStr = typ.Field(i).Tag.Get("binary")
+			if len(sizeStr) == 0 {
+				continue
+			}
+			if field.Kind() != reflect.Slice {
+				return ErrUnsupportedFieldType
+			}
+			// TODO(ymotongpoo): Confirm element type check of slice field.
+			// following implementation cause panic when the slice is zero value.
+			//
+			//	if field.Index(0).Kind() != reflect.Uint8 {
+			//		return ErrUnsupportedFieldType
+			//	}
+			//
 		}
+
 		size, err := strconv.ParseUint(sizeStr, 0, 64)
 		if err != nil {
 			return err
 		}
-
-		//log.Printf("%v", typ.Field(i).Name)
 
 		// TODO(ymotongpoo): Require refactoring
 		switch field.Kind() {
@@ -120,6 +132,15 @@ func (d *Decoder) Unmarshal(v interface{}) error {
 				continue
 			}
 			st.Field(i).SetUint(bit)
+		case reflect.Slice:
+			data, err := d.buf.PopBytes(size)
+			if err != nil && err != io.EOF {
+				return err
+			}
+			if typ.Field(i).Name == "_" {
+				continue
+			}
+			st.Field(i).SetBytes(data)
 		default:
 			log.Printf("%s: Failed to get type (%s)", typ.Field(i).Name, typ.Kind())
 			// TODO(ymotongpoo): Add exceptional process
