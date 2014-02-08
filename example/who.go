@@ -40,19 +40,23 @@ func main() {
 	for {
 		data, err := buf.PopBytes(EntrySize)
 		if err != nil {
-			break
+			if err != io.EOF {
+				log.Fatalln("Error: ", err.Error())
+			}
 		}
 
 		b := bitstring.NewBuffer(bytes.NewBuffer(data))
 		u := &Utmpx{}
 
-		err = bitstring.Unmarshal(b, u)
-		if err != nil {
-			break
+		marshalErr := bitstring.Unmarshal(b, u)
+		if marshalErr != nil {
+			if marshalErr != io.EOF {
+				log.Fatalln("Error: ", err.Error())
+			}
 		}
 		fmt.Println(u.String())
-	}
-	if err != io.EOF {
-		log.Fatalln("Error: ", err.Error())
+		if err == io.EOF {
+			break
+		}
 	}
 }
